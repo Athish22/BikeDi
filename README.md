@@ -24,21 +24,22 @@ the 3 best with an elevation profile and GPX export.
 The key stays on the dev server (requests go through the `/ors` proxy in `vite.config.js`)
 and is never sent to the browser.
 
-## Deploy (Cloudflare Pages, free)
+## Deploy (Cloudflare Workers, free)
 
-In production, `functions/ors/[[path]].js` takes over the dev proxy's job: it adds the key
-server-side and only allows bike round-trip requests.
+In production, `worker/index.js` serves the site from `dist/` and takes over the dev proxy's
+job: it adds the key server-side and only allows bike round-trip requests.
 
-1. Push this repo to GitHub (`.env` is git-ignored, so the key is not committed).
-2. Cloudflare dashboard → **Workers & Pages → Create → Pages → Connect to Git** → pick the repo.
-3. Build settings:
-   - Framework preset: **Vite** (or None)
+1. In `wrangler.jsonc`, set `"name"` to your Worker's name in the Cloudflare dashboard.
+2. Push to GitHub (`.env` is git-ignored, so the key is not committed).
+3. Worker → **Settings → Build**:
    - Build command: `npm run build`
-   - Build output directory: `dist`
-4. **Settings → Variables and Secrets**: add `ORS_API_KEY` (type *Secret*) for Production
-   (and Preview if you use preview deploys), then redeploy.
+   - Deploy command: `npx wrangler deploy`
+4. After the first deploy, **Settings → Variables and Secrets** → add `ORS_API_KEY` as a *Secret*.
 
-Every push to the main branch redeploys automatically. Node version comes from `.node-version`.
+Every push redeploys automatically. To deploy from your own machine instead: `npx wrangler login`
+once, then `npm run deploy`.
+
+Test the Worker locally with `npm run build && npx wrangler dev` (it reads the key from `.env`).
 
 ## How it works
 
@@ -49,7 +50,7 @@ Every push to the main branch redeploys automatically. Node version comes from `
 | `src/lib/ors.js` | OpenRouteService round-trip requests |
 | `src/components/MapView.jsx` | MapLibre map (OpenFreeMap tiles) |
 | `src/components/ElevationProfile.jsx` | Interactive elevation chart |
-| `functions/ors/[[path]].js` | Cloudflare Pages Function: production API proxy |
+| `worker/index.js` | Cloudflare Worker: serves the site and proxies the API in production |
 
 Free ORS tier: 2,000 routes/day, 40/minute. Each "Generate" uses 10.
 
