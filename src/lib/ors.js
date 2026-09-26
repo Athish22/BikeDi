@@ -1,6 +1,8 @@
 // OpenRouteService client. Requests go through the dev server's /ors proxy,
 // which adds the API key (see vite.config.js).
 
+import { elevationGain, fixElevationSpikes } from './geo.js'
+
 export class OrsError extends Error {
   constructor(status, message) {
     super(message)
@@ -45,11 +47,17 @@ export async function fetchRoundTrip({ profile, start, lengthM, seed, points }) 
 
   const feature = (await res.json()).features[0]
   const props = feature.properties
+  const raw = feature.geometry.coordinates // [lng, lat, elevation]
+  const coords = fixElevationSpikes(raw)
+
+  // ORS's ascent/descent include the bogus climbs from spikes; take them back out.
+  const before = elevationGain(raw)
+  const after = elevationGain(coords)
   return {
-    coords: feature.geometry.coordinates, // [lng, lat, elevation]
+    coords,
     distanceM: props.summary.distance,
-    ascent: props.ascent ?? 0,
-    descent: props.descent ?? 0,
+    ascent: Math.max(0, (props.ascent ?? 0) - (before.ascent - after.ascent)),
+    descent: Math.max(0, (props.descent ?? 0) - (before.descent - after.descent)),
     surface: props.extras?.surface?.summary ?? [],
   }
 }
